@@ -1,0 +1,10 @@
+wheel
+tinkoff-investments
+python-dotenv
+protobuf3
+ta
+sqlalchemy
+torch
+matplotlib
+sklearn
+pyqt6
