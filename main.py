@@ -1,11 +1,15 @@
 # https://github.com/Tinkoff/invest-python/tree/main/examples
 # https://charlieoneill.medium.com/predicting-the-price-of-bitcoin-with-multivariate-pytorch-lstms-695bc294130
+# https://medium.com/geekculture/implementing-the-most-popular-indicator-on-tradingview-using-python-239d579412ab
 
 import os
 
 import dotenv
 import numpy as np
+import pandas as pd
 import torch
+from scipy.signal import argrelextrema
+from sklearn.linear_model import LinearRegression
 from tinkoff.invest import Client
 from torch import nn
 from torch.autograd import Variable
@@ -48,7 +52,7 @@ if __name__ == '__main__':
     # таблица всех инструментов
     all_instruments = get_all_instruments(TOKEN)
     # обновим дневные данные
-    update_daily_data(TOKEN, all_instruments)
+    # update_daily_data(TOKEN, all_instruments, years=1)
 
     shares = all_instruments[all_instruments["instrument_type"] == "share"]
 
@@ -56,6 +60,58 @@ if __name__ == '__main__':
 
     for figi in shares["figi"].to_list():
         df = db.get_ohlcv_data_by_figi(figi)
+        channel_length = max(-200, -len(df))
+        crop = max(-600, -len(df))
+        model = LinearRegression()
+        model.fit(df.index.values[channel_length:, np.newaxis], df['close'][channel_length:])
+        df['channel_mid'] = np.nan
+        df['channel_mid'].iloc[channel_length:] = model.predict(df.index.values[channel_length:, np.newaxis])
+        # df['channel_high'] = df['channel_mid'] + df['close'].iloc[channel_length:].std()
+        # df['channel_low'] = df['channel_mid'] - df['close'].iloc[channel_length:].std()
+
+        n = 10  # number of points to be checked before and after
+
+        # df.dropna(axis=0, inplace=True)
+
+        # Find local peaks
+        df['min'] = df.iloc[argrelextrema(df['low'].values, np.less_equal, order=n)[0]]['low']
+        df['max'] = df.iloc[argrelextrema(df['high'].values, np.greater_equal, order=n)[0]]['high']
+
+        df_min = df['min'][channel_length:].dropna()
+        model = LinearRegression()
+        model.fit(df_min.index.values[:, np.newaxis], df_min)
+        df['mins_line'] = np.nan
+        df['mins_line'].iloc[channel_length:] = model.predict(df.index.values[channel_length:, np.newaxis])
+
+        df_max = df['max'][channel_length:].dropna()
+        model = LinearRegression()
+        model.fit(df_max.index.values[:, np.newaxis], df_max)
+        df['maxs_line'] = np.nan
+        df['maxs_line'].iloc[channel_length:] = model.predict(df.index.values[channel_length:, np.newaxis])
+
+
+        volume_profile = df.groupby('close')['volume'].sum()
+
+        # df = add_all_ta_features(prices_df, open="open", high="high", low="low", close="close", volume="volume",
+        #                          fillna=False)
+
+
+
+        df.set_index('datetime', inplace=True)
+        df = df[crop:]
+
+        # https://medium.com/swlh/how-to-analyze-volume-profiles-with-python-3166bb10ff24
+
+        plt.show()
+
+
+        # plt.show()
+
+        # df.drop(['volume', 'open', 'high', 'low', 'min', 'max'], axis=1).plot()
+        # # plt.scatter(df.index, df['min'], c='g')
+        # # plt.scatter(df.index, df['max'], c='b')
+        # plt.show()
+        1
 
 
     # # main(TOKEN)
@@ -160,20 +216,7 @@ if __name__ == '__main__':
     #     #         else:
     #     #             prices_df[column] = prices_df[column] * instrument.lot
     #     #
-    #     #     n = 5  # number of points to be checked before and after
-    #     #
-    #     #     prices_df.dropna(axis=0, inplace=True)
-    #     #
-    #     #     # Find local peaks
-    #     #     prices_df['min'] = prices_df.iloc[argrelextrema(prices_df.close.values, np.less_equal, order=n)[0]]['close']
-    #     #     prices_df['max'] = prices_df.iloc[argrelextrema(prices_df.close.values, np.greater_equal, order=n)[0]][
-    #     #         'close']
-    #     #
-    #     #     df = add_all_ta_features(prices_df, open="open", high="high", low="low", close="close", volume="volume",
-    #     #                              fillna=False)
-    #     #
-    #     #     plt.scatter(prices_df.index, prices_df['min'], c='g')
-    #     #     plt.scatter(prices_df.index, prices_df['max'], c='b')
+
     #     #     plt.plot(prices_df.index, prices_df['close'])
     #     #     # plt.plot(prices_df.index, prices_df['volume'])
     #     #     plt.legend(loc="best")
