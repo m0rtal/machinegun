@@ -3,10 +3,12 @@
 # https://medium.com/geekculture/implementing-the-most-popular-indicator-on-tradingview-using-python-239d579412ab
 
 import os
+import seaborn as sns
 
 import dotenv
 import numpy as np
 import pandas as pd
+import plotly
 import torch
 from scipy.signal import argrelextrema
 from sklearn.linear_model import LinearRegression
@@ -19,6 +21,8 @@ from utils.tinkoff_data_downloaders import get_all_instruments
 from utils.db_api import Database
 
 import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 
 dotenv.load_dotenv(".env")
 TOKEN = os.getenv("INVEST_TOKEN")
@@ -90,29 +94,64 @@ if __name__ == '__main__':
         df['maxs_line'].iloc[channel_length:] = model.predict(df.index.values[channel_length:, np.newaxis])
 
 
-        volume_profile = df.groupby('close')['volume'].sum()
 
         # df = add_all_ta_features(prices_df, open="open", high="high", low="low", close="close", volume="volume",
         #                          fillna=False)
-
-
 
         df.set_index('datetime', inplace=True)
         df = df[crop:]
 
         # https://medium.com/swlh/how-to-analyze-volume-profiles-with-python-3166bb10ff24
 
-        plt.show()
+        # fig = px.histogram(df, x="volume", y="close", nbins=150, orientation="h")
+        # fig = px.line(x=df.index, y=df["close"], labels=dict(x="Date", y="Price"))
+        # fig.add_histogram(df, x="volume", y="close", orientation="h")  # nbins=150
+        # plotly.offline.plot(fig, filename='test.html')
+        # fig = go.Figure()
+        # fig.add_trace(go.Scatter(x=df.index, y=df["close"], mode="lines"))
+        # fig.add_trace(go.Histogram(x=df["close"], y=df["close"], orientation="h", histfunc="sum")) # name='Vol profile',
+        # # fig.show()
+        # plotly.offline.plot(fig, filename='test.html')
 
+        volume_profile = df.groupby('close')['volume'].sum()
+        # plt.barh(volume_profile.index, volume_profile.values, label="profile")
+        # plt.plot(df.index, df["close"], label="close")
 
+        # fig, ax1 = plt.subplots()
+        # color = 'tab:blue'
+        # ax1.plot(df.index.date, df["close"], label="close")
+        # ax1.set_ylabel('price', color=color)  # we already handled the x-label with ax1
+        # ax1.tick_params(axis='y', labelcolor=color)
+        #
+        # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+        #
+        # color = 'tab:green'
+        # ax2.set_xlabel('volume')
+        # ax2.set_ylabel('price', color=color)
+        # ax2.barh(volume_profile.index, volume_profile.values)
+        # ax2.tick_params(axis='y', labelcolor=color)
+        #
+        # # fig.tight_layout()
+        #
+        # plt.legend(loc="best")
         # plt.show()
+
+        df["date"] = df.index
+        df["date"] = df["date"].dt.strftime('%Y-%m-%d')
+
+        fig, ax = plt.subplots()
+        sns.regplot(x='datetime', y='close', data=df, ax=ax)
+        ax2 = ax.twinx()
+        sns.barplot(x="volume", y="abbrev", data=volume_profile.reset_index, label="Volume profile", color="b")
+        sns.plt.show()
+
+        break
 
         # df.drop(['volume', 'open', 'high', 'low', 'min', 'max'], axis=1).plot()
         # # plt.scatter(df.index, df['min'], c='g')
         # # plt.scatter(df.index, df['max'], c='b')
         # plt.show()
         1
-
 
     # # main(TOKEN)
     #

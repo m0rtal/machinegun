@@ -8,3 +8,5 @@ torch
 matplotlib
 sklearn
 pyqt6
+plotly
+kaleido
