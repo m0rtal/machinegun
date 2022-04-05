@@ -16,7 +16,7 @@ from tinkoff.invest import Client
 from torch import nn
 from torch.autograd import Variable
 
-from utils.misc import update_daily_data
+from utils.misc import update_daily_data, support_resistance, plot_financial
 from utils.tinkoff_data_downloaders import get_all_instruments
 from utils.db_api import Database
 
@@ -48,10 +48,10 @@ def main(TOKEN) -> None:
 if __name__ == '__main__':
     dotenv.load_dotenv(".env")
     TOKEN = os.getenv("INVEST_TOKEN")
-    PROXY = os.getenv("PROXY")
+    # PROXY = os.getenv("PROXY")
 
-    os.environ['http_proxy'] = PROXY
-    os.environ['HTTP_PROXY'] = PROXY
+    # os.environ['http_proxy'] = PROXY
+    # os.environ['HTTP_PROXY'] = PROXY
 
     # таблица всех инструментов
     all_instruments = get_all_instruments(TOKEN)
@@ -93,57 +93,31 @@ if __name__ == '__main__':
         df['maxs_line'] = np.nan
         df['maxs_line'].iloc[channel_length:] = model.predict(df.index.values[channel_length:, np.newaxis])
 
-
-
         # df = add_all_ta_features(prices_df, open="open", high="high", low="low", close="close", volume="volume",
         #                          fillna=False)
 
+        # df["date"] = df["datetime"].dt.date
         df.set_index('datetime', inplace=True)
+
         df = df[crop:]
 
         # https://medium.com/swlh/how-to-analyze-volume-profiles-with-python-3166bb10ff24
 
-        # fig = px.histogram(df, x="volume", y="close", nbins=150, orientation="h")
-        # fig = px.line(x=df.index, y=df["close"], labels=dict(x="Date", y="Price"))
-        # fig.add_histogram(df, x="volume", y="close", orientation="h")  # nbins=150
-        # plotly.offline.plot(fig, filename='test.html')
-        # fig = go.Figure()
-        # fig.add_trace(go.Scatter(x=df.index, y=df["close"], mode="lines"))
-        # fig.add_trace(go.Histogram(x=df["close"], y=df["close"], orientation="h", histfunc="sum")) # name='Vol profile',
-        # # fig.show()
-        # plotly.offline.plot(fig, filename='test.html')
+        df["levels"] = support_resistance(df)
 
-        volume_profile = df.groupby('close')['volume'].sum()
-        # plt.barh(volume_profile.index, volume_profile.values, label="profile")
-        # plt.plot(df.index, df["close"], label="close")
+        fig, ax1 = plt.subplots(figsize=(16, 9))
+        ax1.plot(df["close"], color="green")
+        ax1.plot(df["channel_mid"])
 
-        # fig, ax1 = plt.subplots()
-        # color = 'tab:blue'
-        # ax1.plot(df.index.date, df["close"], label="close")
-        # ax1.set_ylabel('price', color=color)  # we already handled the x-label with ax1
-        # ax1.tick_params(axis='y', labelcolor=color)
-        #
-        # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-        #
-        # color = 'tab:green'
-        # ax2.set_xlabel('volume')
-        # ax2.set_ylabel('price', color=color)
-        # ax2.barh(volume_profile.index, volume_profile.values)
-        # ax2.tick_params(axis='y', labelcolor=color)
-        #
-        # # fig.tight_layout()
-        #
-        # plt.legend(loc="best")
-        # plt.show()
+        levels = support_resistance(df)
 
-        df["date"] = df.index
-        df["date"] = df["date"].dt.strftime('%Y-%m-%d')
+        for date, level in levels.items():
+            plt.hlines(level, xmin=date, xmax=max(df.index), color="gray")
 
-        fig, ax = plt.subplots()
-        sns.regplot(x='datetime', y='close', data=df, ax=ax)
-        ax2 = ax.twinx()
-        sns.barplot(x="volume", y="abbrev", data=volume_profile.reset_index, label="Volume profile", color="b")
-        sns.plt.show()
+        # date_format = mpl_dates.DateFormatter('%d %b %Y')
+        # ax.xaxis.set_major_formatter(date_format)
+        fig.show()
+        fig.savefig("test.png")
 
         break
 

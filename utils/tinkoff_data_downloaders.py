@@ -57,5 +57,5 @@ def get_ohlcv(TOKEN, figi, i, interval=CandleInterval.CANDLE_INTERVAL_DAY):
 
             except Exception as err:
                 print(err)
-                sleep(random())
+                sleep(random()*10)
                 continue
