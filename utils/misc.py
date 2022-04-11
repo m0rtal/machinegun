@@ -7,7 +7,7 @@ from utils.db_api import Database
 from utils.db_models import OHLCV
 from utils.tinkoff_data_downloaders import get_ohlcv
 from mplfinance.original_flavor import candlestick_ohlc
-import matplotlib.dates as mpl_dates
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import mplfinance as mpf
@@ -46,15 +46,20 @@ def support_resistance(df):
     levels = levels.drop_duplicates().dropna().to_dict()
     result = dict()
     std = df["close"].std()
-    for date, value in levels.items():
-        if result.items():
-            for known_date, known_value in result.items():
-                if abs(value - known_value) > std:
-                    result[date] = value
-                else:
-                    result[known_date] = (known_value + value) / 2
-        else:
-            result[date] = value
+
+    def check_list(check_dict: dict, check_value: float, std: float) -> bool:
+        count = 0
+        values = check_dict.values()
+        if values:
+            for value in values:
+                if abs(check_value - value) < std/2:
+                    count += 1
+        return True if count > 0 else False
+
+    for key, value in levels.items():
+        if not check_list(result, value, std):
+            result[key] = value
+
     return result
 
 

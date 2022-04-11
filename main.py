@@ -19,6 +19,8 @@ from torch.autograd import Variable
 from utils.misc import update_daily_data, support_resistance, plot_financial
 from utils.tinkoff_data_downloaders import get_all_instruments
 from utils.db_api import Database
+import matplotlib.dates as mpl_dates
+
 
 import matplotlib.pyplot as plt
 import plotly.express as px
@@ -98,14 +100,16 @@ if __name__ == '__main__':
 
         # df["date"] = df["datetime"].dt.date
         df.set_index('datetime', inplace=True)
-
+        df["YM"] = df.index.strftime("%Y-%m")
+        df["month_open"] = df.groupby("YM")["open"].head(1)
+        df["month_open"] = df["month_open"].fillna(method="ffill")
+        # prices_monthly = df["close"].resample("M").ohlc()
+        df["monthly_std"] = df["close"].resample("M").mean().rolling(14).std().resample("d").mean()
         df = df[crop:]
 
         # https://medium.com/swlh/how-to-analyze-volume-profiles-with-python-3166bb10ff24
 
-        df["levels"] = support_resistance(df)
-
-        fig, ax1 = plt.subplots(figsize=(16, 9))
+        fig, ax1 = plt.subplots(figsize=(20, 10))
         ax1.plot(df["close"], color="green")
         ax1.plot(df["channel_mid"])
 
@@ -114,8 +118,8 @@ if __name__ == '__main__':
         for date, level in levels.items():
             plt.hlines(level, xmin=date, xmax=max(df.index), color="gray")
 
-        # date_format = mpl_dates.DateFormatter('%d %b %Y')
-        # ax.xaxis.set_major_formatter(date_format)
+        date_format = mpl_dates.DateFormatter('%d %b %Y')
+        ax1.xaxis.set_major_formatter(date_format)
         fig.show()
         fig.savefig("test.png")
 
